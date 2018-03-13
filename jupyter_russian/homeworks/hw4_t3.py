@@ -45,18 +45,18 @@ class LogRegressor():
         используем для ограничения значений аргумента логарифмов
     """
     def iterate_file(self, 
-                     fname=DS_FILE_NAME, 
-                     top_n_train=100000, 
-                     total=125000,
+                     fname=DS_TEST_FILE_NAME, 
+                     top_n_train=700, 
+                     total=1000,
                      learning_rate=0.1,
-                     tolerance=1e-16):
+                     tolerance=1e-15):
         
         self._loss = []
+        self._acc = []    #для подсчёта средней точности работы
         n = 0
         
         # откроем файл
         with open(fname, 'r') as f:            
-            
             # прогуляемся по строкам файла
             for line in tqdm_notebook(f, total=total, mininterval=1):
                 pair = line.strip().split('\t')
@@ -68,19 +68,27 @@ class LogRegressor():
                 sentence = sentence.split(' ')
                 # теги вопроса, это y
                 tags = set(tags.split(' '))
+                print ("Original question tags: ", tags)
                 
                 # значение функции потерь для текущего примера
                 sample_loss = 0
+                
+                #если мы в тест части - инитим множ-ва для коэффта Жаккара
+                if n >= top_n_train:
+                    r_tags = []   #настоящие теги вопроса
+                    #или просто tags можно считать настоящими тегами?
+                    p_tags = []   #предсказанные теги вопроса
 
                 # прокидываем градиенты для каждого тега
                 for tag in self._tags:
                     # целевая переменная равна 1 если текущий тег есть у текущего примера
                     y = int(tag in tags)
                     
+                    #набираем множество реальных тегов для тестового вопроса
+                    if n >= top_n_train and y :
+                        r_tags = r_tags.append(tag) 
+                    
                     # расчитываем значение линейной комбинации весов и признаков объекта
-                    # инициализируем z
-                    # ЗАПОЛНИТЕ ПРОПУСКИ В КОДЕ
-                    # z = ...
                     z = 0
    
                     for word in sentence:
@@ -92,39 +100,48 @@ class LogRegressor():
                         # z += ...
                         z += self._w[tag][self._vocab[word]]
     
-                    # вычисляем вероятность наличия тега
-                    # ЗАПОЛНИТЕ ПРОПУСКИ В КОДЕ
-                    # sigma = ...
+                    # вычисляем вероятность наличия тега sigma
                     lim = - np.log(tolerance/(1 - tolerance))
-                    
                     if z < -lim:
                         sigma = tolerance
-                    if z > lim:
+                    elif z > lim:
                         sigma = 1 - tolerance
                     else:
                         sigma = 1/ (1 + np.exp(-z))
     
                     
                     # обновляем значение функции потерь для текущего примера
-                    # ЗАПОЛНИТЕ ПРОПУСКИ В КОДЕ
-                    # sample_loss += ...
                     sample_loss += y*np.log(sigma) + (1 - y)*np.log(1 - sigma)
                  
                     
                     # если мы все еще в тренировочной части, то обновим параметры
                     if n < top_n_train:
-                        # вычисляем производную логарифмического правдоподобия по весу
-                        # ЗАПОЛНИТЕ ПРОПУСКИ В КОДЕ
-                        # dLdw = ...
+                        # вычисляем производную логарифмического правдоподобия по весу dLdw 
                         dLdw = (y - sigma)
-
                         # делаем градиентный шаг
-                        # мы минимизируем отрицательное логарифмическое правдоподобие (второй знак минус)
-                        # поэтому мы идем в обратную сторону градиента для минимизации (первый знак минус)
                         for word in sentence:                        
                             self._w[tag][self._vocab[word]] -= -learning_rate*dLdw
                         self._b[tag] -= -learning_rate*dLdw
+                    #если мы уже в тестировочной части
+                    else:
+                        #считаем вероятность для данного примера содержать текущий тег (как?)
+                        #если такая веротность > 0.9, добавляем этот тег в множетсов тегов примера
+                        if (sigma > 0.9):
+                            p_tags = p_tags.append(tag)
+                        #смотрим множетсво реальных тегов примера (как?)
+                        #смотрим множетсво предсказанных тегов примера
+                        #считаем коэффециент Жаккара (он же acc, точность) для них
                     
+                #на выходе из цикла по тегам у нас заполнено два множетсва, r_tags = и p_tags  
+                #и мы можем посчитать коэффт Жаккара (как точность (accuracy) модели:
+                
+                if n >= top_n_train:
+                    acc = JacCoeff(r_tags, p_tags)
+                    self._acc.append(acc)
+                
                 n += 1
                         
                 self._loss.append(sample_loss)
+        #прошлись по всему файлу, теперь у нас есть массив точностей по всем примерам и мы
+        #можем вернуть пользователю среднюю точность
+        return np.mean(self._acc)
