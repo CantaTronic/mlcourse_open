@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+#larga data sets
+data/*
+solutions/*.zip
+
 # C extensions
 *.so
 

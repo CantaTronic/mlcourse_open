@@ -1,3 +1,5 @@
+# Обновите определение класса LogRegressor
+# Ваш код здесь
 class LogRegressor():
     
     """Конструктор
@@ -55,6 +57,7 @@ class LogRegressor():
         self._loss = []
         self._acc = []    #для подсчёта средней точности работы
         n = 0
+        word_set = set()
         
         # откроем файл
         with open(fname, 'r') as f:            
@@ -75,6 +78,7 @@ class LogRegressor():
                 sample_loss = 0
                 
                 p_tags = set()   #предсказанные теги вопроса
+                word_set.clear()
 
                 # прокидываем градиенты для каждого тега
                 for tag in self._tags:
@@ -89,18 +93,20 @@ class LogRegressor():
                     z = 0
                     rw = 0
                     dLdw = 0
-   
+                       
                     for word in sentence:
                         # если в режиме тестирования появляется слово которого нет в словаре, то мы его игнорируем
                         if n >= top_n_train and word not in self._vocab:
                             continue
                         if word not in self._vocab:
                             self._vocab[word] = len(self._vocab)
-                            if n < top_n_train:   #если встретили слово в первый раз, доб. регресс член в производную
-                                w_ik = self._w[tag][self._vocab[word]]
-                                dLdw += lm*(2*gamma*w_ik \
+                        if word not in word_set:
+                            word_set.add(word)
+                            #если встретили слово в первый раз, доб. регресс член в производную
+                            w_ik = self._w[tag][self._vocab[word]]
+                            dLdw += lm*(2*gamma*w_ik \
                                   + (1 - gamma)*np.sign(w_ik))
-                        # z += ...
+                            
                         z += self._w[tag][self._vocab[word]] + self._b[tag]
                         rw += pow(self._w[tag][self._vocab[word]], 2)
     

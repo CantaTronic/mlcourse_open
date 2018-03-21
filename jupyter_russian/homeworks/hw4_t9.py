@@ -1,4 +1,44 @@
+# Обновите определение класса LogRegressor
+# Ваш код здесь
+# Обновите определение класса LogRegressor
+# Ваш код здесь
 class LogRegressor():
+    def predict_proba(self, sent):
+      #takes sentence and return dict with predictions
+      #бьем на отдельные слова
+      sentence = sentence.split(' ')
+      
+      #предсказанные теги вопроса
+      self.p_tags = {}  
+      # перебираем популярные теги
+      for tag in self._tags:
+          # расчитываем значение линейной комбинации весов и признаков объекта
+          z = 0
+          for word in sentence:
+              z += self._w[tag][self._vocab[word]] + self._b[tag]
+
+          # вычисляем вероятность наличия тега sigma
+          lim = - np.log(tolerance/(1 - tolerance))
+          if z < -lim:
+              sigma = tolerance
+          elif z > lim:
+              sigma = 1 - tolerance
+          else:
+              sigma = 1/ (1 + np.exp(-z))
+
+          #если вероятность для данного примера содержать текущий тег > 0.9, 
+          #добавляем этот тег в множетсов тегов примера
+          if (sigma > 0.9):
+              self.p_tags[tag] = sigma
+      return self.p_tags
+  
+    def filter_vocab(self, n=10000):
+      #здесь буду фильтроваться слова
+      self._vocab = sorted(self._vocab, key=self._vocab.get, reverse=True)
+      for w in self._vocab:
+        print (w, "\t", d[w])
+      self._vocab = self._vocab[:n]
+      pass
     
     """Конструктор
     
@@ -50,11 +90,13 @@ class LogRegressor():
                      learning_rate=0.1,
                      tolerance=1e-15,
                      lm = 0.0002,
-                     gamma=0.1):   #regularisation parameter
+                     gamma=0.1,
+                     update_vocab=True):   #regularisation parameter
         
         self._loss = []
         self._acc = []    #для подсчёта средней точности работы
         n = 0
+        word_set = set()
         
         # откроем файл
         with open(fname, 'r') as f:            
@@ -75,6 +117,7 @@ class LogRegressor():
                 sample_loss = 0
                 
                 p_tags = set()   #предсказанные теги вопроса
+                word_set.clear()
 
                 # прокидываем градиенты для каждого тега
                 for tag in self._tags:
@@ -88,19 +131,23 @@ class LogRegressor():
                     # расчитываем значение линейной комбинации весов и признаков объекта
                     z = 0
                     rw = 0
-                    dLdw = 0
-   
+                    #dLdw = 0
+                       
                     for word in sentence:
                         # если в режиме тестирования появляется слово которого нет в словаре, то мы его игнорируем
                         if n >= top_n_train and word not in self._vocab:
                             continue
-                        if word not in self._vocab:
+                        if (word not in self._vocab) and (update_vocab=True):
                             self._vocab[word] = len(self._vocab)
-                            if n < top_n_train:   #если встретили слово в первый раз, доб. регресс член в производную
-                                w_ik = self._w[tag][self._vocab[word]]
-                                dLdw += lm*(2*gamma*w_ik \
+                        '''
+                        if word not in word_set:
+                            word_set.add(word)
+                            #если встретили слово в первый раз, доб. регресс член в производную
+                            w_ik = self._w[tag][self._vocab[word]]
+                            dLdw += lm*(2*gamma*w_ik \
                                   + (1 - gamma)*np.sign(w_ik))
-                        # z += ...
+                        '''
+                            
                         z += self._w[tag][self._vocab[word]] + self._b[tag]
                         rw += pow(self._w[tag][self._vocab[word]], 2)
     
@@ -119,9 +166,14 @@ class LogRegressor():
                 #+ lm*rw/2
 
                     if n < top_n_train: 
-                        dLdw += y - sigma
+                        dLdw = y - sigma
                         for word in sentence: 
                             #dLdw += lm*self._w[tag][self._vocab[word]]
+                            if word not in word_set:
+                                word_set.add(word)
+                                #если встретили слово в первый раз, доб. регресс член в производную
+                                w_ik = self._w[tag][self._vocab[word]]
+                                dLdw += lm*(2*gamma*w_ik + (1 - gamma)*np.sign(w_ik))
                             self._w[tag][self._vocab[word]] -= -learning_rate*dLdw
                         self._b[tag] -= -learning_rate*dLdw
                         
